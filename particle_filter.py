@@ -138,6 +138,9 @@ def show_particles(image: np.ndarray, state: np.ndarray, W: np.ndarray, frame_in
 
 def main():
     state_at_first_frame = np.matlib.repmat(s_initial, N, 1).T
+    noise = np.random.randint(0, 100, (6, 100))
+    state_at_first_frame = state_at_first_frame + noise
+
     S = predict_particles(state_at_first_frame)
 
     # LOAD FIRST IMAGE
