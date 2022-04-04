@@ -98,9 +98,13 @@ def bhattacharyya_distance(p: np.ndarray, q: np.ndarray) -> float:
     Return:
         distance: float. The Bhattacharyya Distance.
     """
-    distance = 0
-    """ DELETE THE LINE ABOVE AND:
-        INSERT YOUR CODE HERE."""
+
+    # TODO: make sure the implementation is OK
+    exp_sum = 0
+    for i in range(4096):
+        exp_sum += np.sqrt(p[i] * q[i])
+    distance = np.exp(20 * exp_sum)
+
     return distance
 
 
@@ -138,6 +142,7 @@ def show_particles(image: np.ndarray, state: np.ndarray, W: np.ndarray, frame_in
 
 def main():
     state_at_first_frame = np.matlib.repmat(s_initial, N, 1).T
+    # TODO: make sure the mu,sigma re fine
     noise = np.random.randint(0, 100, (6, 100))
     state_at_first_frame = state_at_first_frame + noise
 
