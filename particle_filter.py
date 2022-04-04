@@ -59,11 +59,39 @@ def compute_normalized_histogram(image: np.ndarray, state: np.ndarray) -> np.nda
     """
     state = np.floor(state)
     state = state.astype(int)
-    hist = np.zeros(1, 16 * 16 * 16)
-    """ DELETE THE LINE ABOVE AND:
-        INSERT YOUR CODE HERE."""
-    hist = np.reshape(hist, 16 * 16 * 16)
 
+    # crop the image to the required rectangle
+    # TODO: check that x is indeed rows
+    x_c = state[0]
+    y_c = state[1]
+    half_w = state[2]
+    half_h = state[3]
+    start_row = max(0,x_c - half_w)
+    end_row = min(x_c + half_w, image.shape[0])
+    start_col = max(0,y_c - half_h)
+    end_col = min(y_c + half_h, image.shape[1])
+    image_sub_portion = image[start_row:end_row, start_col:end_col, :]
+
+    # quantization to 4-bits
+    for start_grey_level in range(0, 255, 32):
+        image_sub_portion[(image_sub_portion >= start_grey_level) & (image_sub_portion < start_grey_level+32)] = int(start_grey_level/32)
+
+    # calc hist
+    hist = np.zeros((16, 16, 16))
+    b = 0
+    g = 1
+    r = 2
+    image_b = image_sub_portion[:, :, b]
+    image_g = image_sub_portion[:, :, g]
+    image_r = image_sub_portion[:, :, r]
+
+    # TODO: maybe optimize it
+    for b_grey_level in range(16):
+        for g_grey_level in range(16):
+            for r_grey_level in range(16):
+                hist[b_grey_level][g_grey_level][r_grey_level] = ((image_b == b_grey_level) & (image_g == g_grey_level) & (image_r == r_grey_level)).sum()
+
+    hist = np.reshape(hist, 16 * 16 * 16)
     # normalize
     hist = hist/sum(hist)
 
