@@ -59,7 +59,7 @@ def compute_normalized_histogram(image: np.ndarray, state: np.ndarray) -> np.nda
     """
     state = np.floor(state)
     state = state.astype(int)
-    hist = np.zeros(1, 16 * 16 * 16)
+    hist = np.zeros((1, 16 * 16 * 16))
     """ DELETE THE LINE ABOVE AND:
         INSERT YOUR CODE HERE."""
     hist = np.reshape(hist, 16 * 16 * 16)
@@ -143,7 +143,7 @@ def show_particles(image: np.ndarray, state: np.ndarray, W: np.ndarray, frame_in
 def main():
     state_at_first_frame = np.matlib.repmat(s_initial, N, 1).T
     # TODO: make sure the mu,sigma re fine
-    noise = np.random.randint(0, 100, (6, 100))
+    noise = np.random.randint(0, 100, (6, N))
     state_at_first_frame = state_at_first_frame + noise
 
     S = predict_particles(state_at_first_frame)
@@ -156,7 +156,19 @@ def main():
 
     # COMPUTE NORMALIZED WEIGHTS (W) AND PREDICTOR CDFS (C)
     # YOU NEED TO FILL THIS PART WITH CODE:
-    """INSERT YOUR CODE HERE."""
+    W = []
+    # TODO: make sure the q stays the same and only p is calculated each iteration
+    # TODO: make sre this is correct after we will have the previous functions
+    for i in range(N):
+        p = compute_normalized_histogram(image, S[:, i])
+        W.append(bhattacharyya_distance(p, q))
+    W = np.array(W)
+    W = W / W.sum()
+
+    C = [W[:, 0]]
+    for i in range(N - 1):
+        C.append(C[i] + W[:, i + 1])
+    C = np.array(C)
 
     images_processed = 1
 
