@@ -158,10 +158,10 @@ def show_particles(image: np.ndarray, state: np.ndarray, W: np.ndarray, frame_in
     plt.title(ID + " - Frame mumber = " + str(frame_index))
 
     # TODO: debug
-    for i in range(N):
-        (x_par, y_par, w_par, h_par) = (state[0,i]-state[2,i], state[1,i]-state[3,i], 2*state[2,i], 2*state[3,i])
-        rect = patches.Rectangle((x_par, y_par), w_par, h_par, linewidth=1, edgecolor='b', facecolor='none')
-        ax.add_patch(rect)
+    # for i in range(N):
+    #     (x_par, y_par, w_par, h_par) = (state[0,i]-state[2,i], state[1,i]-state[3,i], 2*state[2,i], 2*state[3,i])
+    #     rect = patches.Rectangle((x_par, y_par), w_par, h_par, linewidth=1, edgecolor='b', facecolor='none')
+    #     ax.add_patch(rect)
 
     # Avg particle box
     state0_avg = np.average(state[0], weights=W)
@@ -174,14 +174,13 @@ def show_particles(image: np.ndarray, state: np.ndarray, W: np.ndarray, frame_in
     ax.add_patch(rect)
 
     # calculate Max particle box
-    (x_max, y_max, w_max, h_max) = (0, 0, 0, 0)
-    """ DELETE THE LINE ABOVE AND:
-        INSERT YOUR CODE HERE."""
+    max_w_index = np.argsort(W)[-1]
+    state_max = state[:, max_w_index]
+    (x_max, y_max, w_max, h_max) = (int(state_max[0] - state_max[2]), int(state_max[1] - state_max[3]), int(2*state_max[2]), int(2*state_max[3]))
 
     rect = patches.Rectangle((x_max, y_max), w_max, h_max, linewidth=1, edgecolor='r', facecolor='none')
     ax.add_patch(rect)
-    #plt.show(block=False)
-
+    # plt.show(block=False)
     fig.savefig(os.path.join(RESULTS, ID + "-" + str(frame_index) + ".png"))
     frame_index_to_mean_state[frame_index] = [float(x) for x in [x_avg, y_avg, w_avg, h_avg]]
     frame_index_to_max_state[frame_index] = [float(x) for x in [x_max, y_max, w_max, h_max]]
@@ -190,10 +189,7 @@ def show_particles(image: np.ndarray, state: np.ndarray, W: np.ndarray, frame_in
 
 def main():
     state_at_first_frame = np.matlib.repmat(s_initial, N, 1).T
-    # TODO: make sure the mu,sigma re fine
-    '''    noise = np.random.randint(0, 100, (6, N))
-        for i in [0,1,4,5]:
-            state_at_first_frame[i] = state_at_first_frame[i] + noise[i]'''
+
     S = predict_particles(state_at_first_frame)
 
     # LOAD FIRST IMAGE
@@ -204,13 +200,10 @@ def main():
 
     # COMPUTE NORMALIZED WEIGHTS (W) AND PREDICTOR CDFS (C)
     # YOU NEED TO FILL THIS PART WITH CODE:
-    W = []
     # TODO: make sure the q stays the same and only p is calculated each iteration
     # TODO: make sre this is correct after we will have the previous functions
     # TODO: maybe optimize it takes a lot of time.
-    for i in range(N):
-        p = compute_normalized_histogram(image, S[:, i])
-        W.append(bhattacharyya_distance(p, q))
+    W = [bhattacharyya_distance(compute_normalized_histogram(image, S[:, i]), q) for i in range(N)]
     W = np.array(W)
     W = W / W.sum()
 
@@ -243,10 +236,7 @@ def main():
         # COMPUTE NORMALIZED WEIGHTS (W) AND PREDICTOR CDFS (C)
         # YOU NEED TO FILL THIS PART WITH CODE:
         # TODO: check this copy+paste
-        W = []
-        for i in range(N):
-            p = compute_normalized_histogram(current_image, S[:, i])
-            W.append(bhattacharyya_distance(p, q))
+        W = [bhattacharyya_distance(compute_normalized_histogram(image, S[:, i]), q) for i in range(N)]
         W = np.array(W)
         W = W / W.sum()
 
