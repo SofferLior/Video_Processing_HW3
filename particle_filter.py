@@ -46,11 +46,10 @@ def predict_particles(s_prior: np.ndarray) -> np.ndarray:
     """
     s_prior = s_prior.astype(float)
     state_drifted = A@s_prior
-    # TODO: think which noise to add
-    state_drifted[0] = state_drifted[0] + np.random.uniform(0, 5, (1, N))
-    state_drifted[1] = state_drifted[1] + np.random.uniform(0, 5, (1, N))
-    state_drifted[4] = state_drifted[4] + np.random.normal(0, 5, (1, N))
-    state_drifted[5] = state_drifted[5] + np.random.normal(0, 2, (1, N))
+    state_drifted[0] = state_drifted[0] + np.random.uniform(0, 10, (1, N))
+    state_drifted[1] = state_drifted[1] + np.random.uniform(0, 10, (1, N))
+    state_drifted[4] = state_drifted[4] + np.random.normal(0, 20, (1, N))
+    state_drifted[5] = state_drifted[5] + np.random.normal(0, 20, (1, N))
     state_drifted = state_drifted.astype(int)
     return state_drifted
 
@@ -67,25 +66,32 @@ def compute_normalized_histogram(image: np.ndarray, state: np.ndarray) -> np.nda
     """
     state = np.floor(state)
     state = state.astype(int)
+    hist = np.zeros((16, 16, 16))
 
     work_image = image.copy()
+
     # crop the image to the required rectangle
     x_c = state[0]
     y_c = state[1]
     half_w = state[2]
     half_h = state[3]
-    start_col = max(0,x_c - half_w)
-    end_col = min(x_c + half_w, image.shape[1])
-    start_row = max(0,y_c - half_h)
-    end_row = min(y_c + half_h, image.shape[0])
+
+    # ignore particles beyond the edges.
+    if x_c - half_w < 0 or y_c - half_h < 0 or x_c + half_w > image.shape[1] or y_c + half_h > image.shape[0]:
+        hist = np.reshape(hist, 16 * 16 * 16)
+        return hist
+
+    start_col = x_c - half_w
+    end_col = x_c + half_w
+    start_row = y_c - half_h
+    end_row = y_c + half_h
     image_sub_portion = work_image[start_row:end_row, start_col:end_col, :]
 
     # quantization to 4-bits
-    for start_grey_level in range(0, 255, 32):
-        image_sub_portion[(image_sub_portion >= start_grey_level) & (image_sub_portion < start_grey_level+32)] = int(start_grey_level/32)
+    for start_grey_level in range(0, 256, 16):
+        image_sub_portion[(image_sub_portion >= start_grey_level) & (image_sub_portion < start_grey_level+16)] = int(start_grey_level/16)
 
     # calc hist
-    hist = np.zeros((16, 16, 16))
     b = 0
     g = 1
     r = 2
@@ -93,7 +99,6 @@ def compute_normalized_histogram(image: np.ndarray, state: np.ndarray) -> np.nda
     image_g = image_sub_portion[:, :, g]
     image_r = image_sub_portion[:, :, r]
 
-    # TODO: maybe optimize it
     for b_grey_level in range(16):
         for g_grey_level in range(16):
             for r_grey_level in range(16):
@@ -103,9 +108,6 @@ def compute_normalized_histogram(image: np.ndarray, state: np.ndarray) -> np.nda
     # normalize
     if sum(hist) != 0:
         hist = hist/sum(hist)
-    else:
-        # TODO: debug
-        print(f'row: [{start_row}:{end_row}] col: [{start_col},{end_col}]')
     return hist
 
 
@@ -139,8 +141,6 @@ def bhattacharyya_distance(p: np.ndarray, q: np.ndarray) -> float:
     Return:
         distance: float. The Bhattacharyya Distance.
     """
-
-    # TODO: make sure the implementation is OK
     exp_sum = 0
     for i in range(4096):
         exp_sum += np.sqrt(p[i] * q[i])
@@ -157,18 +157,12 @@ def show_particles(image: np.ndarray, state: np.ndarray, W: np.ndarray, frame_in
     plt.imshow(image)
     plt.title(ID + " - Frame mumber = " + str(frame_index))
 
-    # TODO: debug
-    # for i in range(N):
-    #     (x_par, y_par, w_par, h_par) = (state[0,i]-state[2,i], state[1,i]-state[3,i], 2*state[2,i], 2*state[3,i])
-    #     rect = patches.Rectangle((x_par, y_par), w_par, h_par, linewidth=1, edgecolor='b', facecolor='none')
-    #     ax.add_patch(rect)
-
     # Avg particle box
     state0_avg = np.average(state[0], weights=W)
     state1_avg = np.average(state[1], weights=W)
     state2_avg = np.average(state[2], weights=W)
     state3_avg = np.average(state[3], weights=W)
-    (x_avg, y_avg, w_avg, h_avg) = (state0_avg-state2_avg, state1_avg-state3_avg, 2*state2_avg, 2*state3_avg)
+    (x_avg, y_avg, w_avg, h_avg) = (int(state0_avg-state2_avg), int(state1_avg-state3_avg), int(2*state2_avg), int(2*state3_avg))
 
     rect = patches.Rectangle((x_avg, y_avg), w_avg, h_avg, linewidth=1, edgecolor='g', facecolor='none')
     ax.add_patch(rect)
@@ -180,7 +174,8 @@ def show_particles(image: np.ndarray, state: np.ndarray, W: np.ndarray, frame_in
 
     rect = patches.Rectangle((x_max, y_max), w_max, h_max, linewidth=1, edgecolor='r', facecolor='none')
     ax.add_patch(rect)
-    # plt.show(block=False)
+    plt.show(block=False)
+
     fig.savefig(os.path.join(RESULTS, ID + "-" + str(frame_index) + ".png"))
     frame_index_to_mean_state[frame_index] = [float(x) for x in [x_avg, y_avg, w_avg, h_avg]]
     frame_index_to_max_state[frame_index] = [float(x) for x in [x_max, y_max, w_max, h_max]]
@@ -189,7 +184,6 @@ def show_particles(image: np.ndarray, state: np.ndarray, W: np.ndarray, frame_in
 
 def main():
     state_at_first_frame = np.matlib.repmat(s_initial, N, 1).T
-
     S = predict_particles(state_at_first_frame)
 
     # LOAD FIRST IMAGE
@@ -199,10 +193,6 @@ def main():
     q = compute_normalized_histogram(image, s_initial)
 
     # COMPUTE NORMALIZED WEIGHTS (W) AND PREDICTOR CDFS (C)
-    # YOU NEED TO FILL THIS PART WITH CODE:
-    # TODO: make sure the q stays the same and only p is calculated each iteration
-    # TODO: make sre this is correct after we will have the previous functions
-    # TODO: maybe optimize it takes a lot of time.
     W = [bhattacharyya_distance(compute_normalized_histogram(image, S[:, i]), q) for i in range(N)]
     W = np.array(W)
     W = W / W.sum()
@@ -234,9 +224,7 @@ def main():
         S = predict_particles(S_next_tag)
 
         # COMPUTE NORMALIZED WEIGHTS (W) AND PREDICTOR CDFS (C)
-        # YOU NEED TO FILL THIS PART WITH CODE:
-        # TODO: check this copy+paste
-        W = [bhattacharyya_distance(compute_normalized_histogram(image, S[:, i]), q) for i in range(N)]
+        W = [bhattacharyya_distance(compute_normalized_histogram(current_image, S[:, i]), q) for i in range(N)]
         W = np.array(W)
         W = W / W.sum()
 
@@ -247,8 +235,7 @@ def main():
 
         # CREATE DETECTOR PLOTS
         images_processed += 1
-        # TODO: change this to the original code
-        if 0 == images_processed%1:
+        if 0 == images_processed%10:
             frame_index_to_avg_state, frame_index_to_max_state = show_particles(
                 current_image, S, W, images_processed, ID, frame_index_to_avg_state, frame_index_to_max_state)
 
